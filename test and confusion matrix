@@ -1,0 +1,29 @@
+from sklearn.metrics import classification_report, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# 1. Preparing x_test 
+x_test = np.load("numpy_data/X_test.npy")
+x_test_norm = (x_test - train_mean) / train_std
+x_test_norm = x_test_norm.reshape(-1, 1024, 1).astype('float32')
+
+y_test = np.load("numpy_data/y_test.npy")
+
+# 2. Predictions
+y_pred_probs = model.predict(x_test_norm)
+y_pred_classes = np.argmax(y_pred_probs, axis=1)
+
+# 3. final report
+print("Test Report - Load 3")
+print(classification_report(y_test, y_pred_classes, target_names=["Normal", "InnerRace", "Ball", "OuterRace"]))
+
+# 4. confusion matrix
+cm = confusion_matrix(y_test, y_pred_classes)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=["Normal", "InnerRace", "Ball", "OuterRace"],
+            yticklabels=["Normal", "InnerRace", "Ball", "OuterRace"])
+plt.title('Confusion Matrix ')
+plt.ylabel('Real classes')
+plt.xlabel('Predicted classes')
+plt.show()
