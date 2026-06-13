@@ -1,0 +1,22 @@
+
+def tflite_to_c_array(tflite_path, output_path, var_name="cwru_model"):
+    with open(tflite_path, "rb") as f:
+        data = f.read()
+
+    with open(output_path, "w") as f:
+        f.write(f"#ifndef {var_name.upper()}_H\n")
+        f.write(f"#define {var_name.upper()}_H\n\n")
+        f.write(f"const unsigned int {var_name}_len = {len(data)};\n")
+        f.write(f"alignas(8) const unsigned char {var_name}[] = {{\n")
+
+        for i, byte in enumerate(data):
+            f.write(f"0x{byte:02x}, ")
+            if (i + 1) % 12 == 0:
+                f.write("\n")
+
+        f.write("\n};\n\n")
+        f.write(f"#endif // {var_name.upper()}_H\n")
+
+tflite_to_c_array("cwru_model.tflite", "cwru_model.h")
+print("C file generated : cwru_model.h")
+
