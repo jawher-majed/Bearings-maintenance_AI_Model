@@ -1,0 +1,11 @@
+{
+    "conv_1_filter": 48,
+    "conv_2_filter": 128,
+    "dense_units": 64,
+    "dropout_rate": 0.30000000000000004,
+    "learning_rate": 0.001,
+    "tuner/epochs": 3,
+    "tuner/initial_epoch": 0,
+    "tuner/bracket": 2,
+    "tuner/round": 0
+}
