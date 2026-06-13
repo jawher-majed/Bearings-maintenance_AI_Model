@@ -1,0 +1,239 @@
+"""
+CWRU Bearing Dataset Builder
+Downloads all 12k Drive End .mat files (loads 0-3 HP)
+and builds a windowed CSV dataset with train/val/test splits.
+
+Splits:
+    Train      -> loads 0, 1, 2 HP  (~75%)
+    Validation -> load  3 HP first 40% of each bearing (~10%)
+    Test       -> load  3 HP last  60% of each bearing (~15%)
+"""
+
+import os
+import urllib.request
+import scipy.io
+import numpy as np
+import pandas as pd
+
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+WINDOW_SIZE = 1024
+FS          = 12_000
+BASE_URL    = "https://engineering.case.edu/sites/default/files"
+OUTPUT_DIR  = "cwru_data"
+VAL_RATIO   = 0.40  # fraction of load-3 data used for validation
+
+
+# ── File table: (name, file_id, label, fault_type, fault_size, load_hp, rpm) ──
+FILES = [
+    # Normal
+    ("normal_0hp",  97,  0, "Normal",    0.000, 0, 1797),
+    ("normal_1hp",  98,  0, "Normal",    0.000, 1, 1772),
+    ("normal_2hp",  99,  0, "Normal",    0.000, 2, 1750),
+    ("normal_3hp", 100,  0, "Normal",    0.000, 3, 1730),
+
+    # Inner Race 0.007"
+    ("IR007_0hp",  105,  1, "InnerRace", 0.007, 0, 1797),
+    ("IR007_1hp",  106,  1, "InnerRace", 0.007, 1, 1772),
+    ("IR007_2hp",  107,  1, "InnerRace", 0.007, 2, 1750),
+    ("IR007_3hp",  108,  1, "InnerRace", 0.007, 3, 1730),
+
+    # Inner Race 0.014"
+    ("IR014_0hp",  169,  1, "InnerRace", 0.014, 0, 1797),
+    ("IR014_1hp",  170,  1, "InnerRace", 0.014, 1, 1772),
+    ("IR014_2hp",  171,  1, "InnerRace", 0.014, 2, 1750),
+    ("IR014_3hp",  172,  1, "InnerRace", 0.014, 3, 1730),
+
+    # Inner Race 0.021"
+    ("IR021_0hp",  209,  1, "InnerRace", 0.021, 0, 1797),
+    ("IR021_1hp",  210,  1, "InnerRace", 0.021, 1, 1772),
+    ("IR021_2hp",  211,  1, "InnerRace", 0.021, 2, 1750),
+    ("IR021_3hp",  212,  1, "InnerRace", 0.021, 3, 1730),
+
+    # Ball 0.007"
+    ("B007_0hp",   118,  2, "Ball",      0.007, 0, 1797),
+    ("B007_1hp",   119,  2, "Ball",      0.007, 1, 1772),
+    ("B007_2hp",   120,  2, "Ball",      0.007, 2, 1750),
+    ("B007_3hp",   121,  2, "Ball",      0.007, 3, 1730),
+
+    # Ball 0.014"
+    ("B014_0hp",   185,  2, "Ball",      0.014, 0, 1797),
+    ("B014_1hp",   186,  2, "Ball",      0.014, 1, 1772),
+    ("B014_2hp",   187,  2, "Ball",      0.014, 2, 1750),
+    ("B014_3hp",   188,  2, "Ball",      0.014, 3, 1730),
+
+    # Ball 0.021"
+    ("B021_0hp",   222,  2, "Ball",      0.021, 0, 1797),
+    ("B021_1hp",   223,  2, "Ball",      0.021, 1, 1772),
+    ("B021_2hp",   224,  2, "Ball",      0.021, 2, 1750),
+    ("B021_3hp",   225,  2, "Ball",      0.021, 3, 1730),
+
+    # Outer Race @6h 0.007"
+    ("OR007_0hp",  130,  3, "OuterRace", 0.007, 0, 1797),
+    ("OR007_1hp",  131,  3, "OuterRace", 0.007, 1, 1772),
+    ("OR007_2hp",  132,  3, "OuterRace", 0.007, 2, 1750),
+    ("OR007_3hp",  133,  3, "OuterRace", 0.007, 3, 1730),
+
+    # Outer Race @6h 0.014"
+    ("OR014_0hp",  197,  3, "OuterRace", 0.014, 0, 1797),
+    ("OR014_1hp",  198,  3, "OuterRace", 0.014, 1, 1772),
+    ("OR014_2hp",  199,  3, "OuterRace", 0.014, 2, 1750),
+    ("OR014_3hp",  200,  3, "OuterRace", 0.014, 3, 1730),
+
+    # Outer Race @6h 0.021"
+    ("OR021_0hp",  234,  3, "OuterRace", 0.021, 0, 1797),
+    ("OR021_1hp",  235,  3, "OuterRace", 0.021, 1, 1772),
+    ("OR021_2hp",  236,  3, "OuterRace", 0.021, 2, 1750),
+    ("OR021_3hp",  237,  3, "OuterRace", 0.021, 3, 1730),
+]
+
+
+# ── Download ───────────────────────────────────────────────────────────────────
+def download_file(file_id, name):
+    path = os.path.join(OUTPUT_DIR, f"{name}.mat")
+    if os.path.exists(path):
+        return path
+    url = f"{BASE_URL}/{file_id}.mat"
+    try:
+        urllib.request.urlretrieve(url, path)
+        return path
+    except Exception as e:
+        print(f"  [FAILED] {name} (id={file_id}): {e}")
+        return None
+
+
+# ── Extract Drive End signal from .mat file ────────────────────────────────────
+def extract_de_signal(mat_path):
+    mat = scipy.io.loadmat(mat_path)
+    de_keys = [k for k in mat.keys() if "DE_time" in k]
+    if not de_keys:
+        raise KeyError(f"No DE_time key found in {mat_path}")
+    return mat[de_keys[0]].flatten()
+
+
+# ── Slice signal into fixed-size non-overlapping windows ──────────────────────
+def make_windows(signal, window_size):
+    windows = []
+    for start in range(0, len(signal) - window_size + 1, window_size):
+        windows.append(signal[start: start + window_size])
+    return windows
+
+
+# ── Process one .mat file into a list of row dicts ────────────────────────────
+def process_file(mat_path, label, fault_type, fault_size, load_hp, rpm):
+    signal  = extract_de_signal(mat_path)
+    windows = make_windows(signal, WINDOW_SIZE)
+    rows = []
+    for idx, win in enumerate(windows):
+        row = {
+            "label":      label,
+            "fault_type": fault_type,
+            "fault_size": fault_size,
+            "load_hp":    load_hp,
+            "rpm":        rpm,
+            "window_id":  idx,
+        }
+        for i, v in enumerate(win):
+            row[f"s_{i}"] = round(float(v), 8)
+        rows.append(row)
+    return rows
+
+
+# ── Train / Validation / Test split ───────────────────────────────────────────
+def make_splits(df):
+    """
+    Train      -> loads 0, 1, 2 HP
+    Validation -> load 3 HP, first VAL_RATIO windows per bearing (temporal cut)
+    Test       -> load 3 HP, remaining windows per bearing
+    """
+    df_train = df[df["load_hp"].isin([0, 1, 2])].copy()
+
+    val_parts, test_parts = [], []
+    for (fault_type, fault_size), group in df[df["load_hp"] == 3].groupby(["fault_type", "fault_size"]):
+        group = group.reset_index(drop=True)
+        n_val = int(len(group) * VAL_RATIO)
+        val_parts.append(group.iloc[:n_val])
+        test_parts.append(group.iloc[n_val:])
+
+    df_val  = pd.concat(val_parts).reset_index(drop=True)
+    df_test = pd.concat(test_parts).reset_index(drop=True)
+
+    return df_train, df_val, df_test
+
+
+# ── Print split summary ────────────────────────────────────────────────────────
+def print_summary(df_train, df_val, df_test):
+    total = len(df_train) + len(df_val) + len(df_test)
+
+    print("\n" + "=" * 58)
+    print("  SPLIT SUMMARY")
+    print("=" * 58)
+    print(f"  {'Total':<10}: {total:5d} windows  (100.0%)")
+    print(f"  {'Train':<10}: {len(df_train):5d} windows  ({len(df_train)/total*100:.1f}%)  loads 0,1,2 HP")
+    print(f"  {'Val':<10}: {len(df_val):5d} windows  ({len(df_val)/total*100:.1f}%)   load 3 HP — first {int(VAL_RATIO*100)}%")
+    print(f"  {'Test':<10}: {len(df_test):5d} windows  ({len(df_test)/total*100:.1f}%)  load 3 HP — last  {int((1-VAL_RATIO)*100)}%")
+
+    for split_name, split_df in [("TRAIN", df_train), ("VAL", df_val), ("TEST", df_test)]:
+        print(f"\n  {split_name} class distribution:")
+        for cls, count in split_df["fault_type"].value_counts().items():
+            print(f"    {cls:12s}: {count:4d}  ({count/len(split_df)*100:.1f}%)")
+
+    # Sanity check: no load overlap between train and val/test
+    assert set(df_train["load_hp"]).isdisjoint(set(df_val["load_hp"])),  "Data leak: train -> val"
+    assert set(df_train["load_hp"]).isdisjoint(set(df_test["load_hp"])), "Data leak: train -> test"
+    print("\n  [OK] No data leakage between splits")
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+def main():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    print(f"CWRU Dataset Builder — {len(FILES)} files")
+    print(f"Window: {WINDOW_SIZE} pts | Fs: {FS} Hz | Duration: {WINDOW_SIZE/FS*1000:.1f} ms\n")
+
+    all_rows       = []
+    n_ok, n_fail   = 0, 0
+
+    for name, file_id, label, fault_type, fault_size, load_hp, rpm in FILES:
+        print(f"  [{fault_type:10s} | {fault_size:.3f}\" | {load_hp}HP]  {name}", end="  ")
+
+        mat_path = download_file(file_id, name)
+        if mat_path is None:
+            n_fail += 1
+            continue
+
+        try:
+            rows = process_file(mat_path, label, fault_type, fault_size, load_hp, rpm)
+            all_rows.extend(rows)
+            print(f"-> {len(rows)} windows")
+            n_ok += 1
+        except Exception as e:
+            print(f"-> ERROR: {e}")
+            n_fail += 1
+
+    print(f"\nDownload: {n_ok} ok  |  {n_fail} failed")
+
+    # Build and save full dataset
+    df = pd.DataFrame(all_rows)
+    df.to_csv("cwru_full.csv", index=False)
+    print(f"Saved cwru_full.csv  "
+          f"({len(df)} windows x {len(df.columns)} cols  "
+          f"| {os.path.getsize('cwru_full.csv')/1e6:.1f} MB)")
+
+    # Build and save splits
+    df_train, df_val, df_test = make_splits(df)
+    print_summary(df_train, df_val, df_test)
+
+    df_train.to_csv("cwru_train.csv",      index=False)
+    df_val.to_csv("cwru_validation.csv",   index=False)
+    df_test.to_csv("cwru_test.csv",        index=False)
+
+    print("\nSaved: cwru_train.csv")
+    print("Saved: cwru_validation.csv")
+    print("Saved: cwru_test.csv")
+
+    return df_train, df_val, df_test
+
+
+if __name__ == "__main__":
+    main()
