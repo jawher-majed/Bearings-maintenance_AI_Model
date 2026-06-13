@@ -24,8 +24,8 @@ The model shows high resilience to noise (SNR):
 
 ### Results Visualization
 
-![Confusion Matrix](path/to/your/confusion_matrix.png)
-![Accuracy Curve](path/to/your/accuracy_curve.png)
+![Confusion Matrix]("C:\Users\jawhe\OneDrive\Documents\Desktop\projets_perso\AI_model\Bearings_AI_model\confusion_matrix.png")
+![Accuracy Curve]("C:\Users\jawhe\OneDrive\Documents\Desktop\projets_perso\AI_model\Bearings_AI_model\accurcy.png")
 
 ## 📂 Project Structure
 - `/notebooks`: Python notebooks for training, data augmentation, and TFLite conversion.
@@ -36,4 +36,4 @@ The model shows high resilience to noise (SNR):
 #
 
 ## 👤 Author
-- Your Name - [Your LinkedIn Profile]
+- Jawher Majed
