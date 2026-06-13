@@ -1,6 +1,7 @@
 from sklearn.metrics import classification_report, confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
 
 # 1. Preparing x_test 
 x_test = np.load("numpy_data/X_test.npy")
@@ -27,3 +28,37 @@ plt.title('Confusion Matrix ')
 plt.ylabel('Real classes')
 plt.xlabel('Predicted classes')
 plt.show()
+
+#test with noise
+
+def add_noise_snr(signal, snr_db):
+    """Ajoute du bruit blanc gaussien pour atteindre un SNR spécifique."""
+    sig_avg_watts = np.mean(signal**2)
+    sig_avg_db = 10 * np.log10(sig_avg_watts)
+
+    noise_avg_db = sig_avg_db - snr_db
+    noise_avg_watts = 10 ** (noise_avg_db / 10)
+
+    noise = np.random.normal(0, np.sqrt(noise_avg_watts), signal.shape)
+    return signal + noise
+
+
+x_test_raw = np.load("numpy_data/X_test.npy")
+
+
+snr_levels = [15, 10, 5, 0]
+
+for snr in snr_levels:
+    # Ajouter le bruit
+    x_test_noisy = add_noise_snr(x_test_raw, snr)
+
+    # NORMALISER 
+    x_test_noisy_norm = (x_test_noisy - train_mean) / train_std
+    x_test_noisy_norm = x_test_noisy_norm.reshape(-1, 1024, 1).astype('float32')
+
+    # ── Prédiction 
+    y_pred_probs = model.predict(x_test_noisy_norm, verbose=0)
+    y_pred_classes = np.argmax(y_pred_probs, axis=1)
+    acc = (y_pred_classes == y_test).mean()
+
+    print(f"SNR: {snr} dB | model precision : {acc*100:.2f}%")
