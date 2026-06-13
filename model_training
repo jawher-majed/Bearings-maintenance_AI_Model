@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 model = tuner.hypermodel.build(best_hps)
 history = model.fit(
     x_train_final, y_train_aug,
@@ -6,3 +7,27 @@ history = model.fit(
     validation_data=(x_val_final, y_val),
     callbacks=[tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)]
 )
+
+
+# 1. Courbe d'Accuracy (Précision)
+plt.figure(figsize=(18, 4))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Précision du modèle (Accuracy)')
+plt.xlabel('Époques')
+plt.ylabel('Précision')
+plt.legend()
+# 2. Courbe de Loss (Perte)
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Perte du modèle (Loss)')
+plt.xlabel('Époques')
+plt.ylabel('Erreur')
+plt.legend()
+
+
+plt.tight_layout()
+plt.show()
