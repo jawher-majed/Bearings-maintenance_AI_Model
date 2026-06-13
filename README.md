@@ -22,10 +22,6 @@ The model shows high resilience to noise (SNR):
 | 10 dB    | 89.96%   |
 | 5 dB     | 41.17%   |
 
-### Results Visualization
-
-![Confusion Matrix]("C:\Users\jawhe\OneDrive\Documents\Desktop\projets_perso\AI_model\Bearings_AI_model\confusion_matrix.png")
-![Accuracy Curve]("C:\Users\jawhe\OneDrive\Documents\Desktop\projets_perso\AI_model\Bearings_AI_model\accurcy.png")
 
 ## 📂 Project Structure
 - `/notebooks`: Python notebooks for training, data augmentation, and TFLite conversion.
