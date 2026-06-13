@@ -1,0 +1,8 @@
+model = tuner.hypermodel.build(best_hps)
+history = model.fit(
+    x_train_final, y_train_aug,
+    batch_size=32,
+    epochs=17,
+    validation_data=(x_val_final, y_val),
+    callbacks=[tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)]
+)
